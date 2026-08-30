@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
 class RuntimeConfig:
-    telegram_bot_token: str
+    telegram_bot_token: str = field(repr=False)
     authorized_chat_id: int
     i2c_bus: int
     i2c_address: int

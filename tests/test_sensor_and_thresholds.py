@@ -47,6 +47,7 @@ def test_runtime_config_reads_required_environment_values(monkeypatch):
     assert config.authorized_chat_id == 123456789
     assert config.i2c_bus == 1
     assert config.i2c_address == 0x40
+    assert "example-token" not in repr(config)
 
 
 class FakeReadMessage(list):
