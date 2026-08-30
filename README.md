@@ -8,6 +8,8 @@ A Raspberry Pi 5 room-monitoring application for the SparkFun Si7021 humidity an
 - Supports authorized Telegram `/start`, `/help`, and `/status` commands.
 - Returns temperature in Celsius and Fahrenheit plus relative humidity.
 - Ignores every Telegram chat except the configured private chat ID.
+- Detects alert and recovery transitions without repeating unchanged alerts.
+- Persists independent temperature and humidity state across restarts.
 - Uses a permission-restricted environment file for secrets.
 
 ## Installation
@@ -32,6 +34,7 @@ Set these environment variables in the secure file:
 - `ROOM_MONITOR_I2C_BUS`
 - `ROOM_MONITOR_I2C_ADDRESS`
 - `ROOM_MONITOR_LOG_LEVEL`
+- `ROOM_MONITOR_ALERT_STATE_FILE`
 
 The project expects the Pi to have I²C enabled and the sensor visible at `0x40` on bus 1.
 
@@ -119,6 +122,21 @@ silently ignored and do not access the sensor.
 Telegram connections use IPv4 explicitly. This avoids `ConnectTimeout`
 failures on networks where DNS returns an IPv6 address but IPv6 routing is
 unavailable.
+
+## Alert state
+
+Temperature is normal from 10 C through 27 C, inclusive. Humidity is normal
+from 30% through 60%, inclusive. A transition outside those ranges creates one
+alert event; unchanged out-of-range readings create none. Returning to the
+normal range creates one recovery event. Temperature and humidity are tracked
+independently.
+
+State is stored as versioned JSON at `ROOM_MONITOR_ALERT_STATE_FILE`, which
+defaults to `/var/lib/room-monitor/alert-state.json`. Writes use a restricted
+temporary file, file synchronization, and atomic replacement so an interrupted
+write cannot leave a partially written active state file. Missing or malformed
+state safely starts as normal and is logged. Sprint 5 will connect these events
+to continuous sensor checks and Telegram delivery.
 
 ## Running tests
 

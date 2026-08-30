@@ -40,6 +40,7 @@ def test_runtime_config_reads_required_environment_values(monkeypatch):
     monkeypatch.setenv("ROOM_MONITOR_AUTHORIZED_CHAT_ID", "123456789")
     monkeypatch.setenv("ROOM_MONITOR_I2C_BUS", "1")
     monkeypatch.setenv("ROOM_MONITOR_I2C_ADDRESS", "0x40")
+    monkeypatch.setenv("ROOM_MONITOR_ALERT_STATE_FILE", "/tmp/room-monitor-test-state.json")
 
     config = load_runtime_config()
 
@@ -47,6 +48,7 @@ def test_runtime_config_reads_required_environment_values(monkeypatch):
     assert config.authorized_chat_id == 123456789
     assert config.i2c_bus == 1
     assert config.i2c_address == 0x40
+    assert str(config.alert_state_file) == "/tmp/room-monitor-test-state.json"
     assert "example-token" not in repr(config)
 
 

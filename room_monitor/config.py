@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -13,6 +14,7 @@ class RuntimeConfig:
     i2c_bus: int
     i2c_address: int
     log_level: str = "INFO"
+    alert_state_file: Path = Path("/var/lib/room-monitor/alert-state.json")
 
 
 def _get_env_int(name: str, default: int | None = None) -> int | None:
@@ -42,4 +44,7 @@ def load_runtime_config() -> RuntimeConfig:
         i2c_bus=bus,
         i2c_address=address,
         log_level=os.getenv("ROOM_MONITOR_LOG_LEVEL", "INFO"),
+        alert_state_file=Path(
+            os.getenv("ROOM_MONITOR_ALERT_STATE_FILE", "/var/lib/room-monitor/alert-state.json")
+        ),
     )

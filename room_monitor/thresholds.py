@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
+
+
+class RangeState(str, Enum):
+    NORMAL = "normal"
+    LOW = "low"
+    HIGH = "high"
 
 
 @dataclass(frozen=True)
@@ -17,14 +24,17 @@ def summarize_reading(temperature_c: float, humidity_pct: float) -> ReadingSumma
     """Return whether the current values are in-range or in an alert state."""
     issues: list[str] = []
 
-    if temperature_c < 10.0:
+    temperature_state = classify_temperature(temperature_c)
+    humidity_state = classify_humidity(humidity_pct)
+
+    if temperature_state is RangeState.LOW:
         issues.append("temperature_low")
-    elif temperature_c > 27.0:
+    elif temperature_state is RangeState.HIGH:
         issues.append("temperature_high")
 
-    if humidity_pct < 30.0:
+    if humidity_state is RangeState.LOW:
         issues.append("humidity_low")
-    elif humidity_pct > 60.0:
+    elif humidity_state is RangeState.HIGH:
         issues.append("humidity_high")
 
     return ReadingSummary(
@@ -33,3 +43,19 @@ def summarize_reading(temperature_c: float, humidity_pct: float) -> ReadingSumma
         issues=issues,
         is_alerting=bool(issues),
     )
+
+
+def classify_temperature(temperature_c: float) -> RangeState:
+    if temperature_c < 10.0:
+        return RangeState.LOW
+    if temperature_c > 27.0:
+        return RangeState.HIGH
+    return RangeState.NORMAL
+
+
+def classify_humidity(humidity_pct: float) -> RangeState:
+    if humidity_pct < 30.0:
+        return RangeState.LOW
+    if humidity_pct > 60.0:
+        return RangeState.HIGH
+    return RangeState.NORMAL
