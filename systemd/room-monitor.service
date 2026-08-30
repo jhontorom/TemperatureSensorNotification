@@ -2,6 +2,8 @@
 Description=Room monitor service
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -10,10 +12,37 @@ EnvironmentFile=/etc/room-monitor.env
 ExecStart=/opt/room-monitor/.venv/bin/python3 -m room_monitor.app
 Restart=on-failure
 RestartSec=10
-User=root
-Group=root
+TimeoutStopSec=30
+KillSignal=SIGINT
+User=room-monitor
+Group=room-monitor
+SupplementaryGroups=i2c
+StateDirectory=room-monitor
+StateDirectoryMode=0700
+UMask=0077
+Environment=PYTHONUNBUFFERED=1
 StandardOutput=journal
 StandardError=journal
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+ProtectProc=invisible
+ProcSubset=pid
+PrivateTmp=true
+RemoveIPC=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET
+SystemCallArchitectures=native
 
 [Install]
 WantedBy=multi-user.target

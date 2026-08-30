@@ -122,6 +122,10 @@ Leave the terminal running and test `/start`, `/help`, and `/status` from the
 authorized chat. Stop it with `Ctrl+C`. Commands from every other chat are
 silently ignored and do not access the sensor.
 
+Only one process may poll a Telegram bot. Stop this foreground process before
+starting the `systemd` service. The application also holds a per-bot
+single-instance lock and rejects a second local process before it can poll.
+
 Telegram connections use IPv4 explicitly. This avoids `ConnectTimeout`
 failures on networks where DNS returns an IPv6 address but IPv6 routing is
 unavailable.
@@ -157,7 +161,7 @@ zone. Alert checks continue outside this reporting window.
 ## Running tests
 
 ```bash
-pytest -q
+.venv/bin/python -m pytest -q
 ```
 
 ## Checking the sensor
@@ -174,11 +178,77 @@ It validates the Si7021 checksum and physical measurement ranges, retries brief
 I2C failures three times, and exits nonzero with a concise error if the sensor
 remains unavailable or returns invalid data.
 
-## Operational notes
+## Deploying with systemd
 
-- `systemd` service file is in `systemd/room-monitor.service`.
-- Use `journalctl -u room-monitor.service -f` to inspect logs.
-- The bot token is never stored in source code or documentation.
+The installer uses fixed system paths and a dedicated `room-monitor` service
+account, so it does not depend on the login username. It preserves an existing
+`/etc/room-monitor.env` and alert-state file. It enables the service at boot but
+does not start it until configuration has been reviewed.
+
+From the repository root:
+
+```bash
+sudo apt update
+sudo apt install -y python3 python3-pip python3-venv i2c-tools
+sudo ./scripts/install.sh
+sudoedit /etc/room-monitor.env
+sudo systemctl start room-monitor.service
+sudo systemctl status room-monitor.service --no-pager
+```
+
+Before starting the service, confirm any earlier foreground test has ended with
+`Ctrl+C`. Do not leave `python -m room_monitor.app` running in another terminal.
+
+The deployment layout is:
+
+```text
+/opt/room-monitor/                         application and virtual environment
+/etc/room-monitor.env                      root-only secrets and configuration
+/etc/systemd/system/room-monitor.service   installed systemd unit
+/var/lib/room-monitor/alert-state.json     persistent alert state
+```
+
+The service runs as the non-login `room-monitor` user with supplementary access
+to the `i2c` group. `systemd` creates `/var/lib/room-monitor` with mode `0700`.
+Application files are root-owned and read-only to the service. The unit starts
+after network-online, restarts after failures with a ten-second delay, limits
+restart bursts, writes to the journal, and starts automatically after reboot.
+
+### Logs and operation
+
+```bash
+sudo systemctl status room-monitor.service --no-pager
+sudo journalctl -u room-monitor.service -n 100 --no-pager
+sudo journalctl -u room-monitor.service -f
+sudo systemctl restart room-monitor.service
+sudo systemctl stop room-monitor.service
+```
+
+To verify automatic startup without rebooting:
+
+```bash
+sudo systemctl is-enabled room-monitor.service
+```
+
+The expected result is `enabled`.
+
+### Updating an installation
+
+Pull and test changes in the repository, then rerun the idempotent installer.
+It preserves the protected environment file and state:
+
+```bash
+git pull --ff-only
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pytest -q
+sudo systemctl stop room-monitor.service
+sudo ./scripts/install.sh
+sudo systemctl start room-monitor.service
+```
+
+The bot token is never stored in source code or documentation. The logging
+formatter redacts the configured token from complete rendered log entries,
+including exception tracebacks, and noisy HTTP request logging is disabled.
 
 ## Troubleshooting
 
@@ -187,6 +257,9 @@ remains unavailable or returns invalid data.
 - Bad checksum or invalid measurement: check wiring and power, then rerun the sensor check.
 - Telegram unauthorized: confirm the bot token and your chat ID are correct.
 - Telegram reports `ConnectTimeout`: verify IPv4 access with `curl -4 -I --connect-timeout 10 https://api.telegram.org`.
+- Telegram reports `409 Conflict`: stop every foreground `room_monitor.app` process, then restart only the systemd service.
 - Chat-ID helper finds nothing: stop the main bot, send the bot a fresh message, and immediately rerun the helper.
 - Protected environment file says permission denied: run the documented single `sudo bash -c` helper command.
-- Reboots: ensure the service is enabled with `sudo systemctl enable --now room-monitor.service`.
+- Service cannot open I²C: verify `getent group i2c` includes `room-monitor` and restart the service.
+- Service does not start: run `sudo journalctl -u room-monitor.service -n 100 --no-pager`.
+- Reboots: verify `sudo systemctl is-enabled room-monitor.service` reports `enabled`.
