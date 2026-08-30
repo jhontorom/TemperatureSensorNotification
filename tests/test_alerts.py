@@ -2,7 +2,7 @@ import pytest
 
 from room_monitor.alerts import AlertState, AlertTracker, EventKind, Metric, evaluate_alerts
 from room_monitor.sensor import SensorReading
-from room_monitor.thresholds import RangeState
+from room_monitor.thresholds import AlertThresholds, RangeState
 
 
 class MemoryStore:
@@ -140,3 +140,16 @@ def test_tracker_rejects_stale_evaluation():
 
     with pytest.raises(ValueError, match="stale"):
         tracker.commit(stale)
+
+
+def test_changed_threshold_is_used_on_next_evaluation():
+    thresholds = AlertThresholds()
+    tracker = AlertTracker(MemoryStore(), lambda: thresholds)
+
+    assert tracker.evaluate(SensorReading(26.0, 45.0)).events == ()
+    thresholds = AlertThresholds(10.0, 25.0, 30.0, 60.0)
+
+    evaluation = tracker.evaluate(SensorReading(26.0, 45.0))
+
+    assert evaluation.events[0].metric is Metric.TEMPERATURE
+    assert evaluation.events[0].current is RangeState.HIGH

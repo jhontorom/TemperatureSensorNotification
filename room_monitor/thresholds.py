@@ -4,12 +4,38 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+import math
 
 
 class RangeState(str, Enum):
     NORMAL = "normal"
     LOW = "low"
     HIGH = "high"
+
+
+@dataclass(frozen=True)
+class AlertThresholds:
+    temperature_low_c: float = 10.0
+    temperature_high_c: float = 27.0
+    humidity_low_pct: float = 30.0
+    humidity_high_pct: float = 60.0
+
+    def __post_init__(self) -> None:
+        values = (
+            self.temperature_low_c,
+            self.temperature_high_c,
+            self.humidity_low_pct,
+            self.humidity_high_pct,
+        )
+        if not all(math.isfinite(value) for value in values):
+            raise ValueError("Thresholds must be finite numbers")
+        if not -40.0 <= self.temperature_low_c < self.temperature_high_c <= 125.0:
+            raise ValueError("Temperature thresholds must satisfy -40 <= low < high <= 125 C")
+        if not 0.0 <= self.humidity_low_pct < self.humidity_high_pct <= 100.0:
+            raise ValueError("Humidity thresholds must satisfy 0 <= low < high <= 100%")
+
+
+DEFAULT_THRESHOLDS = AlertThresholds()
 
 
 @dataclass(frozen=True)
@@ -20,12 +46,16 @@ class ReadingSummary:
     is_alerting: bool = False
 
 
-def summarize_reading(temperature_c: float, humidity_pct: float) -> ReadingSummary:
+def summarize_reading(
+    temperature_c: float,
+    humidity_pct: float,
+    thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
+) -> ReadingSummary:
     """Return whether the current values are in-range or in an alert state."""
     issues: list[str] = []
 
-    temperature_state = classify_temperature(temperature_c)
-    humidity_state = classify_humidity(humidity_pct)
+    temperature_state = classify_temperature(temperature_c, thresholds)
+    humidity_state = classify_humidity(humidity_pct, thresholds)
 
     if temperature_state is RangeState.LOW:
         issues.append("temperature_low")
@@ -45,17 +75,21 @@ def summarize_reading(temperature_c: float, humidity_pct: float) -> ReadingSumma
     )
 
 
-def classify_temperature(temperature_c: float) -> RangeState:
-    if temperature_c < 10.0:
+def classify_temperature(
+    temperature_c: float, thresholds: AlertThresholds = DEFAULT_THRESHOLDS
+) -> RangeState:
+    if temperature_c < thresholds.temperature_low_c:
         return RangeState.LOW
-    if temperature_c > 27.0:
+    if temperature_c > thresholds.temperature_high_c:
         return RangeState.HIGH
     return RangeState.NORMAL
 
 
-def classify_humidity(humidity_pct: float) -> RangeState:
-    if humidity_pct < 30.0:
+def classify_humidity(
+    humidity_pct: float, thresholds: AlertThresholds = DEFAULT_THRESHOLDS
+) -> RangeState:
+    if humidity_pct < thresholds.humidity_low_pct:
         return RangeState.LOW
-    if humidity_pct > 60.0:
+    if humidity_pct > thresholds.humidity_high_pct:
         return RangeState.HIGH
     return RangeState.NORMAL

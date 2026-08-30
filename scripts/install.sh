@@ -50,6 +50,10 @@ if [ -e "$STATE_DIR/alert-state.json" ]; then
     chown "$SERVICE_USER:$SERVICE_USER" "$STATE_DIR/alert-state.json"
     chmod 0600 "$STATE_DIR/alert-state.json"
 fi
+if [ -e "$STATE_DIR/thresholds.json" ]; then
+    chown "$SERVICE_USER:$SERVICE_USER" "$STATE_DIR/thresholds.json"
+    chmod 0600 "$STATE_DIR/thresholds.json"
+fi
 
 if [ ! -e "$ENV_FILE" ]; then
     install -o root -g root -m 0600 "$PROJECT_DIR/.env.example" "$ENV_FILE"

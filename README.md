@@ -8,6 +8,7 @@ A Raspberry Pi 5 room-monitoring application for the SparkFun Si7021 humidity an
 - Supports authorized Telegram `/start`, `/help`, and `/status` commands.
 - Returns temperature in Celsius and Fahrenheit plus relative humidity.
 - Ignores every Telegram chat except the configured private chat ID.
+- Lets the authorized chat view and change temperature and humidity alert limits.
 - Detects alert and recovery transitions without repeating unchanged alerts.
 - Persists independent temperature and humidity state across restarts.
 - Sends hourly reports from 8:00 AM through 5:00 PM in the Pi's local time.
@@ -37,6 +38,7 @@ Set these environment variables in the secure file:
 - `ROOM_MONITOR_I2C_ADDRESS`
 - `ROOM_MONITOR_LOG_LEVEL`
 - `ROOM_MONITOR_ALERT_STATE_FILE`
+- `ROOM_MONITOR_THRESHOLD_FILE`
 - `ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS`
 
 The project expects the Pi to have I²C enabled and the sensor visible at `0x40` on bus 1.
@@ -118,7 +120,8 @@ Run the bot in the foreground for its first test:
 sudo bash -c 'set -a; . /etc/room-monitor.env; set +a; exec .venv/bin/python -m room_monitor.app'
 ```
 
-Leave the terminal running and test `/start`, `/help`, and `/status` from the
+Leave the terminal running and test `/start`, `/help`, `/status`, and
+`/thresholds` from the
 authorized chat. Stop it with `Ctrl+C`. Commands from every other chat are
 silently ignored and do not access the sensor.
 
@@ -132,17 +135,36 @@ unavailable.
 
 ## Alert state
 
-Temperature is normal from 10 C through 27 C, inclusive. Humidity is normal
-from 30% through 60%, inclusive. A transition outside those ranges creates one
-alert event; unchanged out-of-range readings create none. Returning to the
-normal range creates one recovery event. Temperature and humidity are tracked
-independently.
+Temperature defaults to normal from 10 C through 27 C, inclusive. Humidity
+defaults to normal from 30% through 60%, inclusive. The authorized chat can
+inspect and change these limits:
+
+```text
+/thresholds
+/settemperature 10 27
+/sethumidity 30 60
+```
+
+Temperature limits must satisfy `-40 <= low < high <= 125 C`. Humidity limits
+must satisfy `0 <= low < high <= 100%`. Successful updates take effect on the
+next alert check and persist across service restarts. Invalid commands leave
+the previous values active. Unauthorized chats receive no response and cannot
+read or change thresholds.
+
+A transition outside the active ranges creates one alert event; unchanged
+out-of-range readings create none. Returning to the normal range creates one
+recovery event. Temperature and humidity are tracked independently.
 
 State is stored as versioned JSON at `ROOM_MONITOR_ALERT_STATE_FILE`, which
 defaults to `/var/lib/room-monitor/alert-state.json`. Writes use a restricted
 temporary file, file synchronization, and atomic replacement so an interrupted
 write cannot leave a partially written active state file. Missing or malformed
 state safely starts as normal and is logged.
+
+Thresholds use separate versioned JSON at `ROOM_MONITOR_THRESHOLD_FILE`, which
+defaults to `/var/lib/room-monitor/thresholds.json`. Threshold writes use the
+same restrictive permissions, synchronization, and atomic replacement pattern.
+A missing or malformed threshold file falls back to the documented defaults.
 
 ## Automatic monitoring
 
@@ -206,6 +228,7 @@ The deployment layout is:
 /etc/room-monitor.env                      root-only secrets and configuration
 /etc/systemd/system/room-monitor.service   installed systemd unit
 /var/lib/room-monitor/alert-state.json     persistent alert state
+/var/lib/room-monitor/thresholds.json      persistent alert limits
 ```
 
 The service runs as the non-login `room-monitor` user with supplementary access

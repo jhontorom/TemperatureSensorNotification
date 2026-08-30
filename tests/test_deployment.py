@@ -53,3 +53,8 @@ def test_installer_copies_only_runtime_sources():
     assert ".env.example" in INSTALLER_TEXT
     assert "cp -a" not in INSTALLER_TEXT
     assert ".git" not in INSTALLER_TEXT
+
+
+def test_installer_repairs_permissions_for_persisted_thresholds():
+    assert 'if [ -e "$STATE_DIR/thresholds.json" ]' in INSTALLER_TEXT
+    assert 'chmod 0600 "$STATE_DIR/thresholds.json"' in INSTALLER_TEXT

@@ -15,6 +15,7 @@ class RuntimeConfig:
     i2c_address: int
     log_level: str = "INFO"
     alert_state_file: Path = Path("/var/lib/room-monitor/alert-state.json")
+    threshold_file: Path = Path("/var/lib/room-monitor/thresholds.json")
     alert_check_interval_seconds: int = 60
 
 
@@ -50,6 +51,9 @@ def load_runtime_config() -> RuntimeConfig:
         log_level=os.getenv("ROOM_MONITOR_LOG_LEVEL", "INFO"),
         alert_state_file=Path(
             os.getenv("ROOM_MONITOR_ALERT_STATE_FILE", "/var/lib/room-monitor/alert-state.json")
+        ),
+        threshold_file=Path(
+            os.getenv("ROOM_MONITOR_THRESHOLD_FILE", "/var/lib/room-monitor/thresholds.json")
         ),
         alert_check_interval_seconds=alert_interval,
     )

@@ -4,10 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from collections.abc import Callable
 from typing import Protocol
 
 from room_monitor.sensor import SensorReading
-from room_monitor.thresholds import RangeState, classify_humidity, classify_temperature
+from room_monitor.thresholds import (
+    AlertThresholds,
+    DEFAULT_THRESHOLDS,
+    RangeState,
+    classify_humidity,
+    classify_temperature,
+)
 
 
 class Metric(str, Enum):
@@ -51,16 +58,21 @@ class StateStore(Protocol):
 class AlertTracker:
     """Evaluate crossings and explicitly persist accepted transitions."""
 
-    def __init__(self, store: StateStore) -> None:
+    def __init__(
+        self,
+        store: StateStore,
+        threshold_provider: Callable[[], AlertThresholds] = lambda: DEFAULT_THRESHOLDS,
+    ) -> None:
         self._store = store
         self._state = store.load()
+        self._threshold_provider = threshold_provider
 
     @property
     def state(self) -> AlertState:
         return self._state
 
     def evaluate(self, reading: SensorReading) -> AlertEvaluation:
-        return evaluate_alerts(self._state, reading)
+        return evaluate_alerts(self._state, reading, self._threshold_provider())
 
     def commit(self, evaluation: AlertEvaluation) -> None:
         if evaluation.previous_state != self._state:
@@ -71,10 +83,14 @@ class AlertTracker:
         self._state = evaluation.current_state
 
 
-def evaluate_alerts(previous_state: AlertState, reading: SensorReading) -> AlertEvaluation:
+def evaluate_alerts(
+    previous_state: AlertState,
+    reading: SensorReading,
+    thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
+) -> AlertEvaluation:
     current_state = AlertState(
-        temperature=classify_temperature(reading.temperature_c),
-        humidity=classify_humidity(reading.humidity_pct),
+        temperature=classify_temperature(reading.temperature_c, thresholds),
+        humidity=classify_humidity(reading.humidity_pct, thresholds),
     )
     events: list[AlertEvent] = []
     _append_transition(

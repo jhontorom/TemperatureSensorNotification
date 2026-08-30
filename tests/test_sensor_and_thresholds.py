@@ -41,6 +41,7 @@ def test_runtime_config_reads_required_environment_values(monkeypatch):
     monkeypatch.setenv("ROOM_MONITOR_I2C_BUS", "1")
     monkeypatch.setenv("ROOM_MONITOR_I2C_ADDRESS", "0x40")
     monkeypatch.setenv("ROOM_MONITOR_ALERT_STATE_FILE", "/tmp/room-monitor-test-state.json")
+    monkeypatch.setenv("ROOM_MONITOR_THRESHOLD_FILE", "/tmp/room-monitor-test-thresholds.json")
     monkeypatch.setenv("ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS", "60")
 
     config = load_runtime_config()
@@ -50,6 +51,7 @@ def test_runtime_config_reads_required_environment_values(monkeypatch):
     assert config.i2c_bus == 1
     assert config.i2c_address == 0x40
     assert str(config.alert_state_file) == "/tmp/room-monitor-test-state.json"
+    assert str(config.threshold_file) == "/tmp/room-monitor-test-thresholds.json"
     assert config.alert_check_interval_seconds == 60
     assert "example-token" not in repr(config)
 
