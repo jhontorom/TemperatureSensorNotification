@@ -1,0 +1,19 @@
+[Unit]
+Description=Room monitor service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/room-monitor
+EnvironmentFile=/etc/room-monitor.env
+ExecStart=/opt/room-monitor/.venv/bin/python3 -m room_monitor.app
+Restart=on-failure
+RestartSec=10
+User=root
+Group=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
