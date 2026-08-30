@@ -15,6 +15,7 @@ class RuntimeConfig:
     i2c_address: int
     log_level: str = "INFO"
     alert_state_file: Path = Path("/var/lib/room-monitor/alert-state.json")
+    alert_check_interval_seconds: int = 60
 
 
 def _get_env_int(name: str, default: int | None = None) -> int | None:
@@ -37,6 +38,9 @@ def load_runtime_config() -> RuntimeConfig:
     address = _get_env_int("ROOM_MONITOR_I2C_ADDRESS", 0x40)
     if bus is None or address is None:
         raise ValueError("I2C configuration must be integers")
+    alert_interval = _get_env_int("ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS", 60)
+    if alert_interval is None or alert_interval < 1:
+        raise ValueError("ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS must be at least 1")
 
     return RuntimeConfig(
         telegram_bot_token=token,
@@ -47,4 +51,5 @@ def load_runtime_config() -> RuntimeConfig:
         alert_state_file=Path(
             os.getenv("ROOM_MONITOR_ALERT_STATE_FILE", "/var/lib/room-monitor/alert-state.json")
         ),
+        alert_check_interval_seconds=alert_interval,
     )

@@ -10,6 +10,8 @@ A Raspberry Pi 5 room-monitoring application for the SparkFun Si7021 humidity an
 - Ignores every Telegram chat except the configured private chat ID.
 - Detects alert and recovery transitions without repeating unchanged alerts.
 - Persists independent temperature and humidity state across restarts.
+- Sends hourly reports from 8:00 AM through 5:00 PM in the Pi's local time.
+- Checks alert thresholds continuously, including outside reporting hours.
 - Uses a permission-restricted environment file for secrets.
 
 ## Installation
@@ -35,6 +37,7 @@ Set these environment variables in the secure file:
 - `ROOM_MONITOR_I2C_ADDRESS`
 - `ROOM_MONITOR_LOG_LEVEL`
 - `ROOM_MONITOR_ALERT_STATE_FILE`
+- `ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS`
 
 The project expects the Pi to have I²C enabled and the sensor visible at `0x40` on bus 1.
 
@@ -135,8 +138,21 @@ State is stored as versioned JSON at `ROOM_MONITOR_ALERT_STATE_FILE`, which
 defaults to `/var/lib/room-monitor/alert-state.json`. Writes use a restricted
 temporary file, file synchronization, and atomic replacement so an interrupted
 write cannot leave a partially written active state file. Missing or malformed
-state safely starts as normal and is logged. Sprint 5 will connect these events
-to continuous sensor checks and Telegram delivery.
+state safely starts as normal and is logged.
+
+## Automatic monitoring
+
+The bot checks alert thresholds every 60 seconds by default, all day and all
+night. Set `ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS` to a positive number to
+change that interval. A transition is sent once and committed only after
+Telegram accepts the message. If Telegram is unavailable, the transition stays
+pending for the next check. If state persistence fails after delivery, further
+alert delivery pauses while the same commit is retried, preventing a message
+flood.
+
+One status report is scheduled at the start of each hour from 8:00 AM through
+5:00 PM inclusive. The scheduler uses the Raspberry Pi's configured local time
+zone. Alert checks continue outside this reporting window.
 
 ## Running tests
 

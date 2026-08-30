@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 import logging
+import threading
 
 import httpx
 import smbus2
@@ -13,12 +14,14 @@ from telegram.ext import Application, ApplicationBuilder, CommandHandler, Contex
 from telegram.request import HTTPXRequest
 
 from room_monitor.config import RuntimeConfig
+from room_monitor.alerts import AlertTracker
+from room_monitor.monitoring import MonitoringService, format_status_message, register_monitoring_jobs
 from room_monitor.sensor import (
     SensorReading,
     SensorReadError,
     read_si7021_temperature_humidity,
-    temperature_to_fahrenheit,
 )
+from room_monitor.state_store import JsonStateStore
 
 
 LOGGER = logging.getLogger(__name__)
@@ -72,12 +75,7 @@ class RoomMonitorBot:
             await update.effective_message.reply_text(SENSOR_UNAVAILABLE_MESSAGE)
             return
 
-        temperature_f = temperature_to_fahrenheit(reading.temperature_c)
-        await update.effective_message.reply_text(
-            "Current room status:\n"
-            f"Temperature: {reading.temperature_c:.2f} C / {temperature_f:.2f} F\n"
-            f"Relative humidity: {reading.humidity_pct:.2f}%"
-        )
+        await update.effective_message.reply_text(format_status_message(reading))
 
     def _log_unauthorized(self, update: Update) -> None:
         LOGGER.warning("Ignored Telegram command from an unauthorized chat")
@@ -86,11 +84,15 @@ class RoomMonitorBot:
 def build_application(config: RuntimeConfig) -> Application:
     """Build the Telegram application and register room-monitor commands."""
 
+    sensor_lock = threading.Lock()
+
     def read_sensor() -> SensorReading:
-        with smbus2.SMBus(config.i2c_bus) as bus:
-            return read_si7021_temperature_humidity(bus, config.i2c_address)
+        with sensor_lock:
+            with smbus2.SMBus(config.i2c_bus) as bus:
+                return read_si7021_temperature_humidity(bus, config.i2c_address)
 
     commands = RoomMonitorBot(config.authorized_chat_id, read_sensor)
+    tracker = AlertTracker(JsonStateStore(config.alert_state_file))
     application = (
         ApplicationBuilder()
         .token(config.telegram_bot_token)
@@ -101,4 +103,8 @@ def build_application(config: RuntimeConfig) -> Application:
     application.add_handler(CommandHandler("start", commands.start))
     application.add_handler(CommandHandler("help", commands.help))
     application.add_handler(CommandHandler("status", commands.status))
+    if application.job_queue is None:
+        raise RuntimeError("Telegram JobQueue support is not installed")
+    service = MonitoringService(read_sensor, tracker, config.authorized_chat_id)
+    register_monitoring_jobs(application.job_queue, service, config.alert_check_interval_seconds)
     return application

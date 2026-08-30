@@ -89,7 +89,7 @@ async def test_status_reports_temporary_failure_without_crashing():
     update.effective_message.reply_text.assert_awaited_once_with(SENSOR_UNAVAILABLE_MESSAGE)
 
 
-def test_application_configures_ipv4_for_api_and_polling(monkeypatch):
+def test_application_configures_ipv4_for_api_and_polling(monkeypatch, tmp_path):
     requests = [Mock(name="api_request"), Mock(name="polling_request")]
     builder = Mock()
     builder.token.return_value = builder
@@ -98,9 +98,20 @@ def test_application_configures_ipv4_for_api_and_polling(monkeypatch):
     builder.build.return_value = Mock()
     monkeypatch.setattr("room_monitor.telegram_bot.ApplicationBuilder", Mock(return_value=builder))
     monkeypatch.setattr("room_monitor.telegram_bot.build_ipv4_request", Mock(side_effect=requests))
-    config = RuntimeConfig("secret", AUTHORIZED_CHAT_ID, 1, 0x40)
+    register_jobs = Mock()
+    monkeypatch.setattr("room_monitor.telegram_bot.register_monitoring_jobs", register_jobs)
+    config = RuntimeConfig(
+        "secret",
+        AUTHORIZED_CHAT_ID,
+        1,
+        0x40,
+        alert_state_file=tmp_path / "alert-state.json",
+    )
 
     build_application(config)
 
     builder.request.assert_called_once_with(requests[0])
     builder.get_updates_request.assert_called_once_with(requests[1])
+    register_jobs.assert_called_once()
+    assert register_jobs.call_args.args[0] is builder.build.return_value.job_queue
+    assert register_jobs.call_args.args[2] == 60
