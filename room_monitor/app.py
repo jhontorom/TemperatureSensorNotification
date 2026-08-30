@@ -36,6 +36,7 @@ def configure_logging(config: RuntimeConfig) -> None:
     root_logger.setLevel(level)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 
 def acquire_instance_lock(token: str) -> socket.socket:

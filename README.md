@@ -263,3 +263,37 @@ including exception tracebacks, and noisy HTTP request logging is disabled.
 - Service cannot open I²C: verify `getent group i2c` includes `room-monitor` and restart the service.
 - Service does not start: run `sudo journalctl -u room-monitor.service -n 100 --no-pager`.
 - Reboots: verify `sudo systemctl is-enabled room-monitor.service` reports `enabled`.
+
+## Quality verification
+
+Run the automated failure simulations before deployment:
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
+The suite covers persisted restart recovery, Telegram interruption and retry,
+sensor disconnection and recovery, unauthorized commands, scheduling, state
+write failure, corrupt state, and duplicate-alert prevention.
+
+Verify reboot recovery on the Pi:
+
+```bash
+sudo systemctl restart room-monitor.service
+sudo systemctl is-active room-monitor.service
+sudo systemctl is-enabled room-monitor.service
+sudo journalctl -u room-monitor.service --since "2 minutes ago" --no-pager
+```
+
+For a controlled sensor-failure check, stop the service, disconnect only the
+Si7021, start the service, and confirm the journal reports failed reads while
+the process remains active. Stop it again before reconnecting the powered
+hardware, then start it and verify `/status`. Never move I2C wiring while the
+Pi or sensor is powered.
+
+For a network-interruption check, temporarily disconnect networking and then
+restore it. The service must remain active; pending transitions retry after
+connectivity returns, and an unchanged out-of-range condition must not flood
+messages.
+
+See `DEMO_CHECKLIST.md` for the short competition demonstration procedure.

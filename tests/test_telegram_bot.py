@@ -11,6 +11,7 @@ from room_monitor.telegram_bot import (
     START_MESSAGE,
     RoomMonitorBot,
     build_application,
+    handle_application_error,
 )
 
 
@@ -89,6 +90,18 @@ async def test_status_reports_temporary_failure_without_crashing():
     update.effective_message.reply_text.assert_awaited_once_with(SENSOR_UNAVAILABLE_MESSAGE)
 
 
+@pytest.mark.asyncio
+async def test_application_error_log_excludes_update_and_error_details(caplog):
+    update = "private update contents"
+    context = SimpleNamespace(error=RuntimeError("private error details"))
+
+    await handle_application_error(update, context)
+
+    assert "Telegram operation failed: RuntimeError" in caplog.text
+    assert update not in caplog.text
+    assert "private error details" not in caplog.text
+
+
 def test_application_configures_ipv4_for_api_and_polling(monkeypatch, tmp_path):
     requests = [Mock(name="api_request"), Mock(name="polling_request")]
     builder = Mock()
@@ -112,6 +125,7 @@ def test_application_configures_ipv4_for_api_and_polling(monkeypatch, tmp_path):
 
     builder.request.assert_called_once_with(requests[0])
     builder.get_updates_request.assert_called_once_with(requests[1])
+    builder.build.return_value.add_error_handler.assert_called_once_with(handle_application_error)
     register_jobs.assert_called_once()
     assert register_jobs.call_args.args[0] is builder.build.return_value.job_queue
     assert register_jobs.call_args.args[2] == 60

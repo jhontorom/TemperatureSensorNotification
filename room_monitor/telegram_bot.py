@@ -36,6 +36,13 @@ def build_ipv4_request() -> HTTPXRequest:
     return HTTPXRequest(httpx_kwargs={"transport": transport})
 
 
+async def handle_application_error(_update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log Telegram callback and polling failures without including private data."""
+    error = context.error
+    error_name = type(error).__name__ if error is not None else "UnknownError"
+    LOGGER.warning("Telegram operation failed: %s", error_name)
+
+
 class RoomMonitorBot:
     """Telegram command handlers restricted to one configured chat."""
 
@@ -103,6 +110,7 @@ def build_application(config: RuntimeConfig) -> Application:
     application.add_handler(CommandHandler("start", commands.start))
     application.add_handler(CommandHandler("help", commands.help))
     application.add_handler(CommandHandler("status", commands.status))
+    application.add_error_handler(handle_application_error)
     if application.job_queue is None:
         raise RuntimeError("Telegram JobQueue support is not installed")
     service = MonitoringService(read_sensor, tracker, config.authorized_chat_id)

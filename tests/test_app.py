@@ -4,7 +4,8 @@ import sys
 
 import pytest
 
-from room_monitor.app import RedactingFormatter, acquire_instance_lock
+from room_monitor.app import RedactingFormatter, acquire_instance_lock, configure_logging
+from room_monitor.config import RuntimeConfig
 
 
 def test_formatter_redacts_token_from_message_and_exception():
@@ -27,6 +28,23 @@ def test_formatter_redacts_token_from_message_and_exception():
 
     assert token not in output
     assert output.count("[REDACTED]") == 2
+
+
+def test_configure_logging_suppresses_noisy_dependency_info(tmp_path):
+    config = RuntimeConfig(
+        "private-test-token",
+        123,
+        1,
+        0x40,
+        log_level="INFO",
+        alert_state_file=tmp_path / "state.json",
+    )
+
+    configure_logging(config)
+
+    assert logging.getLogger("httpx").level == logging.WARNING
+    assert logging.getLogger("httpcore").level == logging.WARNING
+    assert logging.getLogger("apscheduler").level == logging.WARNING
 
 
 class FakeSocket:
