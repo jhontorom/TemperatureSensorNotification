@@ -85,8 +85,8 @@ async def test_status_reports_celsius_fahrenheit_and_humidity():
 
     sensor_reader.assert_called_once_with()
     message = update.effective_message.reply_text.await_args.args[0]
-    assert "25.00 C" in message
-    assert "77.00 F" in message
+    assert "23.42 C" in message
+    assert "74.15 F" in message
     assert "48.50%" in message
 
 

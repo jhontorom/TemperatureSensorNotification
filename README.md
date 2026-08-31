@@ -211,9 +211,10 @@ run again. Sensor timestamps are stored in UTC so later weather and energy data
 can be correlated without daylight-saving ambiguity. SQLite database and
 journal files under `data/` are ignored by Git.
 
-Every valid measurement passes through the existing Si7021 reader and a
-rate-limited history recorder. The default storage interval is 60 seconds. To
-change it without editing source code:
+A dedicated scheduler job uses the existing Si7021 reader and stores one valid
+measurement on each collection cycle. Telegram commands, alert checks, and
+hourly reports do not alter the history cadence. The default storage interval
+is 60 seconds. To change it without editing source code:
 
 ```bash
 sudoedit /etc/room-monitor.env
@@ -258,6 +259,27 @@ sudo sqlite3 -readonly /opt/room-monitor/data/temperature_monitor.db \
 The current schema contains `sensor_readings` for history and an empty
 `energy_bills` table reserved for later bill comparison. No energy analysis is
 implemented in this phase.
+
+## Temperature calibration
+
+The Si7021 measurement remains unchanged and is exposed as
+`raw_temperature_c` and `raw_temperature_f`. Displayed temperature uses these
+fixed calibration constants from `room_monitor/sensor.py`:
+
+```text
+TEMPERATURE_OFFSET_F = -2.85
+TEMPERATURE_OFFSET_C = -1.583
+```
+
+The application exposes `calibrated_temperature_c` and
+`calibrated_temperature_f` without overwriting either raw value. Telegram
+status, hourly reports, alert text, and the sensor-check command display the
+calibrated values. Alert threshold classification continues using the original
+measurement so existing alert behavior is unchanged.
+
+The existing SQLite `temperature_f` column continues to store raw Fahrenheit.
+The history CLI labels and displays both calibrated and raw Fahrenheit, so
+historical data remains auditable and no migration or row rewrite is required.
 
 ## Checking the sensor
 

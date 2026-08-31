@@ -12,7 +12,9 @@ def test_history_cli_displays_recent_measurements(tmp_path, capsys):
     output = capsys.readouterr().out
     assert result == 0
     assert "Timestamp" in output
-    assert "Temperature" in output
+    assert "Calibrated" in output
+    assert "Raw" in output
     assert "2026-08-30 14:01:00" in output
+    assert "71.4 F" in output
     assert "74.2 F" in output
     assert "48.0 %" in output

@@ -3,7 +3,10 @@ import pytest
 from room_monitor.config import load_runtime_config
 from room_monitor import sensor
 from room_monitor.sensor import (
+    TEMPERATURE_OFFSET_C,
+    TEMPERATURE_OFFSET_F,
     InvalidMeasurementError,
+    SensorReading,
     SensorReadError,
     read_si7021_temperature_humidity,
     temperature_to_fahrenheit,
@@ -15,6 +18,20 @@ def test_temperature_conversion_is_correct():
     assert temperature_to_fahrenheit(0.0) == 32.0
     assert round(temperature_to_fahrenheit(20.0), 2) == 68.0
     assert round(temperature_to_fahrenheit(25.0), 2) == 77.0
+
+
+def test_temperature_calibration_preserves_raw_values_and_applies_both_offsets():
+    raw_temperature_f = 78.85
+    raw_temperature_c = (raw_temperature_f - 32.0) * 5.0 / 9.0
+    reading = SensorReading(raw_temperature_c, 50.0)
+
+    assert TEMPERATURE_OFFSET_F == -2.85
+    assert TEMPERATURE_OFFSET_C == -1.583
+    assert reading.temperature_c == raw_temperature_c
+    assert reading.raw_temperature_c == raw_temperature_c
+    assert reading.raw_temperature_f == pytest.approx(78.85)
+    assert reading.calibrated_temperature_f == pytest.approx(76.00)
+    assert reading.calibrated_temperature_c == pytest.approx(24.44, abs=0.01)
 
 
 def test_threshold_summary_marks_alerts_and_recovery():

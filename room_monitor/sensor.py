@@ -13,6 +13,8 @@ import smbus2
 LOGGER = logging.getLogger(__name__)
 DEFAULT_ATTEMPTS = 3
 DEFAULT_RETRY_DELAY_SECONDS = 0.1
+TEMPERATURE_OFFSET_F = -2.85
+TEMPERATURE_OFFSET_C = -1.583
 
 
 class SensorReadError(RuntimeError):
@@ -32,9 +34,33 @@ class SensorReading:
     temperature_c: float
     humidity_pct: float
 
+    @property
+    def raw_temperature_c(self) -> float:
+        return self.temperature_c
+
+    @property
+    def raw_temperature_f(self) -> float:
+        return temperature_to_fahrenheit(self.raw_temperature_c)
+
+    @property
+    def calibrated_temperature_c(self) -> float:
+        return calibrate_temperature_c(self.raw_temperature_c)
+
+    @property
+    def calibrated_temperature_f(self) -> float:
+        return calibrate_temperature_f(self.raw_temperature_f)
+
 
 def temperature_to_fahrenheit(celsius: float) -> float:
     return (celsius * 9.0 / 5.0) + 32.0
+
+
+def calibrate_temperature_c(raw_temperature_c: float) -> float:
+    return raw_temperature_c + TEMPERATURE_OFFSET_C
+
+
+def calibrate_temperature_f(raw_temperature_f: float) -> float:
+    return raw_temperature_f + TEMPERATURE_OFFSET_F
 
 
 def read_si7021_temperature_humidity(

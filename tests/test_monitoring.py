@@ -9,6 +9,7 @@ from telegram.error import TimedOut
 from room_monitor.alerts import AlertState, AlertTracker
 from room_monitor.monitoring import (
     MonitoringService,
+    format_alert_message,
     is_hourly_report_time,
     register_monitoring_jobs,
 )
@@ -55,7 +56,7 @@ async def test_hourly_report_contains_all_measurements():
     context.bot.send_message.assert_awaited_once()
     assert context.bot.send_message.await_args.args[0] == 123
     message = context.bot.send_message.await_args.args[1]
-    assert "25.00 C / 77.00 F" in message
+    assert "23.42 C / 74.15 F" in message
     assert "48.50%" in message
 
 
@@ -154,12 +155,41 @@ async def test_sensor_failure_does_not_send_or_crash():
 async def test_history_collection_reads_sensor_without_sending_telegram():
     context = context_with_bot()
     sensor_reader = Mock(return_value=SensorReading(25.0, 48.5))
-    service = MonitoringService(sensor_reader, AlertTracker(MemoryStore()), 123)
+    history_recorder = Mock()
+    service = MonitoringService(
+        sensor_reader, AlertTracker(MemoryStore()), 123, history_recorder
+    )
 
     await service.collect_history(context)
 
     sensor_reader.assert_called_once_with()
+    history_recorder.record.assert_called_once_with(SensorReading(25.0, 48.5))
     context.bot.send_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_each_history_job_persists_one_reading():
+    context = context_with_bot()
+    sensor_reader = Mock(return_value=SensorReading(25.0, 48.5))
+    history_recorder = Mock()
+    service = MonitoringService(
+        sensor_reader, AlertTracker(MemoryStore()), 123, history_recorder
+    )
+
+    await service.collect_history(context)
+    await service.collect_history(context)
+
+    assert sensor_reader.call_count == 2
+    assert history_recorder.record.call_count == 2
+
+
+def test_temperature_alert_message_uses_calibrated_values():
+    result = AlertTracker(MemoryStore()).evaluate(SensorReading(30.0, 45.0))
+
+    message = format_alert_message(result.events)
+
+    assert "28.42 C / 83.15 F" in message
+    assert "30.00 C / 86.00 F" not in message
 
 
 @pytest.mark.parametrize("hour", range(8, 18))

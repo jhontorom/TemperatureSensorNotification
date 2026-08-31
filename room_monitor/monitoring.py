@@ -13,7 +13,14 @@ from telegram.error import TelegramError
 from telegram.ext import JobQueue
 
 from room_monitor.alerts import AlertEvaluation, AlertEvent, AlertTracker, EventKind, Metric
-from room_monitor.sensor import SensorReadError, SensorReading, temperature_to_fahrenheit
+from room_monitor.history import HistoryRecorder
+from room_monitor.sensor import (
+    SensorReadError,
+    SensorReading,
+    calibrate_temperature_c,
+    calibrate_temperature_f,
+    temperature_to_fahrenheit,
+)
 from room_monitor.state_store import StatePersistenceError
 from room_monitor.thresholds import RangeState
 
@@ -26,10 +33,17 @@ LAST_REPORT_HOUR = 17
 class MonitoringService:
     """Read the sensor and deliver scheduled or transition-based messages."""
 
-    def __init__(self, sensor_reader: Callable[[], SensorReading], tracker: AlertTracker, chat_id: int) -> None:
+    def __init__(
+        self,
+        sensor_reader: Callable[[], SensorReading],
+        tracker: AlertTracker,
+        chat_id: int,
+        history_recorder: HistoryRecorder | None = None,
+    ) -> None:
         self._sensor_reader = sensor_reader
         self._tracker = tracker
         self._chat_id = chat_id
+        self._history_recorder = history_recorder
         self._sensor_lock = asyncio.Lock()
         self._alert_lock = asyncio.Lock()
         self._pending_commit: AlertEvaluation | None = None
@@ -68,8 +82,11 @@ class MonitoringService:
                 self._pending_commit = evaluation
 
     async def collect_history(self, _context) -> None:
-        """Trigger the shared, persistence-aware sensor reader."""
-        await self._read_sensor("history collection")
+        """Read and persist exactly one scheduled historical sample."""
+        reading = await self._read_sensor("history collection")
+        if reading is None or self._history_recorder is None:
+            return
+        await asyncio.to_thread(self._history_recorder.record, reading)
 
     async def _read_sensor(self, purpose: str) -> SensorReading | None:
         try:
@@ -91,8 +108,8 @@ class MonitoringService:
 def format_status_message(reading: SensorReading) -> str:
     return (
         "Current room status:\n"
-        f"Temperature: {reading.temperature_c:.2f} C / "
-        f"{temperature_to_fahrenheit(reading.temperature_c):.2f} F\n"
+        f"Temperature: {reading.calibrated_temperature_c:.2f} C / "
+        f"{reading.calibrated_temperature_f:.2f} F\n"
         f"Relative humidity: {reading.humidity_pct:.2f}%"
     )
 
@@ -114,7 +131,11 @@ def _format_event(event: AlertEvent) -> str:
 
 def _format_event_value(event: AlertEvent) -> str:
     if event.metric is Metric.TEMPERATURE:
-        return f"{event.value:.2f} C / {temperature_to_fahrenheit(event.value):.2f} F"
+        raw_fahrenheit = temperature_to_fahrenheit(event.value)
+        return (
+            f"{calibrate_temperature_c(event.value):.2f} C / "
+            f"{calibrate_temperature_f(raw_fahrenheit):.2f} F"
+        )
     return f"{event.value:.2f}% RH"
 
 

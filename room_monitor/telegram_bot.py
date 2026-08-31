@@ -163,17 +163,13 @@ def build_application(config: RuntimeConfig) -> Application:
     """Build the Telegram application and register room-monitor commands."""
 
     sensor_lock = threading.Lock()
-    history_recorder = HistoryRecorder(
-        config.database_file, config.measurement_interval_seconds
-    )
+    history_recorder = HistoryRecorder(config.database_file)
     history_recorder.initialize()
 
     def read_sensor() -> SensorReading:
         with sensor_lock:
             with smbus2.SMBus(config.i2c_bus) as bus:
-                reading = read_si7021_temperature_humidity(bus, config.i2c_address)
-        history_recorder.record(reading)
-        return reading
+                return read_si7021_temperature_humidity(bus, config.i2c_address)
 
     threshold_manager = ThresholdManager(JsonThresholdStore(config.threshold_file))
     commands = RoomMonitorBot(config.authorized_chat_id, read_sensor, threshold_manager)
@@ -194,7 +190,9 @@ def build_application(config: RuntimeConfig) -> Application:
     application.add_error_handler(handle_application_error)
     if application.job_queue is None:
         raise RuntimeError("Telegram JobQueue support is not installed")
-    service = MonitoringService(read_sensor, tracker, config.authorized_chat_id)
+    service = MonitoringService(
+        read_sensor, tracker, config.authorized_chat_id, history_recorder
+    )
     register_monitoring_jobs(
         application.job_queue,
         service,

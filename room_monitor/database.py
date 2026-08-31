@@ -11,7 +11,6 @@ from pathlib import Path
 import sqlite3
 from typing import Iterator
 
-
 LOGGER = logging.getLogger(__name__)
 DEFAULT_DATABASE_PATH = Path("data/temperature_monitor.db")
 MIN_TEMPERATURE_F = -40.0
@@ -34,6 +33,11 @@ class StoredSensorReading:
     timestamp: str
     temperature_f: float
     humidity: float
+
+    @property
+    def raw_temperature_f(self) -> float:
+        return self.temperature_f
+
 
 
 @contextmanager

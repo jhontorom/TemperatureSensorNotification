@@ -8,7 +8,7 @@ import sys
 
 import smbus2
 
-from room_monitor.sensor import SensorReadError, read_si7021_temperature_humidity, temperature_to_fahrenheit
+from room_monitor.sensor import SensorReadError, read_si7021_temperature_humidity
 
 
 def parse_int_or_hex(value: str) -> int:
@@ -29,7 +29,14 @@ def main() -> int:
         logging.getLogger(__name__).error("Unable to read Si7021: %s", exc)
         return 1
 
-    print(f"Temperature: {reading.temperature_c:.2f} C / {temperature_to_fahrenheit(reading.temperature_c):.2f} F")
+    print(
+        f"Temperature: {reading.calibrated_temperature_c:.2f} C / "
+        f"{reading.calibrated_temperature_f:.2f} F (calibrated)"
+    )
+    print(
+        f"Raw temperature: {reading.raw_temperature_c:.2f} C / "
+        f"{reading.raw_temperature_f:.2f} F"
+    )
     print(f"Humidity: {reading.humidity_pct:.2f} %")
     return 0
 
