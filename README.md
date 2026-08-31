@@ -13,6 +13,7 @@ A Raspberry Pi 5 room-monitoring application for the SparkFun Si7021 humidity an
 - Persists independent temperature and humidity state across restarts.
 - Sends hourly reports from 8:00 AM through 5:00 PM in the Pi's local time.
 - Checks alert thresholds continuously, including outside reporting hours.
+- Stores rate-limited historical temperature and humidity readings in SQLite.
 - Uses a permission-restricted environment file for secrets.
 
 ## Installation
@@ -40,6 +41,8 @@ Set these environment variables in the secure file:
 - `ROOM_MONITOR_ALERT_STATE_FILE`
 - `ROOM_MONITOR_THRESHOLD_FILE`
 - `ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS`
+- `ROOM_MONITOR_DATABASE_FILE`
+- `ROOM_MONITOR_MEASUREMENT_INTERVAL_SECONDS`
 
 The project expects the Pi to have I²C enabled and the sensor visible at `0x40` on bus 1.
 
@@ -185,6 +188,76 @@ zone. Alert checks continue outside this reporting window.
 ```bash
 .venv/bin/python -m pytest -q
 ```
+
+## Historical SQLite storage
+
+SQLite provides a small, serverless historical database using Python's built-in
+`sqlite3` module. No database server, ORM, or additional Python dependency is
+required. During development the default database is:
+
+```text
+data/temperature_monitor.db
+```
+
+The systemd installation runs from `/opt/room-monitor`, so the deployed path is:
+
+```text
+/opt/room-monitor/data/temperature_monitor.db
+```
+
+The application creates the directory, database, tables, and timestamp index
+automatically. Existing rows are preserved on restart and when the installer is
+run again. Sensor timestamps are stored in UTC so later weather and energy data
+can be correlated without daylight-saving ambiguity. SQLite database and
+journal files under `data/` are ignored by Git.
+
+Every valid measurement passes through the existing Si7021 reader and a
+rate-limited history recorder. The default storage interval is 60 seconds. To
+change it without editing source code:
+
+```bash
+sudoedit /etc/room-monitor.env
+```
+
+Set a positive whole number of seconds, for example:
+
+```text
+ROOM_MONITOR_MEASUREMENT_INTERVAL_SECONDS="300"
+```
+
+Apply the change:
+
+```bash
+sudo systemctl restart room-monitor.service
+```
+
+View the 20 most recent deployed measurements:
+
+```bash
+cd /opt/room-monitor
+sudo -u room-monitor .venv/bin/python3 -m room_monitor.cli_history --limit 20
+```
+
+For a date range, supply both endpoints:
+
+```bash
+cd /opt/room-monitor
+sudo -u room-monitor .venv/bin/python3 -m room_monitor.cli_history \
+  --start "2026-08-30 08:00:00" --end "2026-08-30 17:00:00"
+```
+
+To inspect the database directly, install the small SQLite command-line client
+and run a read-only query:
+
+```bash
+sudo apt install -y sqlite3
+sudo sqlite3 -readonly /opt/room-monitor/data/temperature_monitor.db \
+  'SELECT id, timestamp, temperature_f, humidity FROM sensor_readings ORDER BY id DESC LIMIT 10;'
+```
+
+The current schema contains `sensor_readings` for history and an empty
+`energy_bills` table reserved for later bill comparison. No energy analysis is
+implemented in this phase.
 
 ## Checking the sensor
 

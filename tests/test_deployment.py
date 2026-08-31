@@ -31,6 +31,7 @@ def test_service_restarts_with_limits_and_writes_to_journal():
 def test_service_applies_practical_hardening_without_blocking_i2c_or_ipv4():
     assert "NoNewPrivileges=true" in SERVICE_TEXT
     assert "ProtectSystem=strict" in SERVICE_TEXT
+    assert "ReadWritePaths=/opt/room-monitor/data" in SERVICE_TEXT
     assert "ProtectHome=true" in SERVICE_TEXT
     assert "RestrictNamespaces=true" in SERVICE_TEXT
     assert "RestrictAddressFamilies=AF_UNIX AF_INET" in SERVICE_TEXT
@@ -53,6 +54,9 @@ def test_installer_copies_only_runtime_sources():
     assert ".env.example" in INSTALLER_TEXT
     assert "cp -a" not in INSTALLER_TEXT
     assert ".git" not in INSTALLER_TEXT
+    assert 'DATA_DIR=$INSTALL_DIR/data' in INSTALLER_TEXT
+    assert 'install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0750 "$DATA_DIR"' in INSTALLER_TEXT
+    assert "temperature_monitor.db" in INSTALLER_TEXT
 
 
 def test_installer_repairs_permissions_for_persisted_thresholds():

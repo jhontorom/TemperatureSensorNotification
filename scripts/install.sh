@@ -6,6 +6,7 @@ ENV_FILE=/etc/room-monitor.env
 SERVICE_FILE=/etc/systemd/system/room-monitor.service
 SERVICE_USER=room-monitor
 STATE_DIR=/var/lib/room-monitor
+DATA_DIR=$INSTALL_DIR/data
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "Run this installer with sudo." >&2
@@ -37,6 +38,7 @@ usermod --append --groups i2c "$SERVICE_USER"
 
 install -d -o root -g root -m 0755 "$INSTALL_DIR"
 install -d -o root -g root -m 0755 "$INSTALL_DIR/room_monitor"
+install -d -o "$SERVICE_USER" -g "$SERVICE_USER" -m 0750 "$DATA_DIR"
 install -o root -g root -m 0644 "$PROJECT_DIR"/room_monitor/*.py "$INSTALL_DIR/room_monitor/"
 install -o root -g root -m 0644 "$PROJECT_DIR/requirements.txt" "$INSTALL_DIR/requirements.txt"
 
@@ -53,6 +55,10 @@ fi
 if [ -e "$STATE_DIR/thresholds.json" ]; then
     chown "$SERVICE_USER:$SERVICE_USER" "$STATE_DIR/thresholds.json"
     chmod 0600 "$STATE_DIR/thresholds.json"
+fi
+if [ -e "$DATA_DIR/temperature_monitor.db" ]; then
+    chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/temperature_monitor.db"
+    chmod 0600 "$DATA_DIR/temperature_monitor.db"
 fi
 
 if [ ! -e "$ENV_FILE" ]; then

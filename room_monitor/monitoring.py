@@ -67,6 +67,10 @@ class MonitoringService:
             if not await self._commit(evaluation):
                 self._pending_commit = evaluation
 
+    async def collect_history(self, _context) -> None:
+        """Trigger the shared, persistence-aware sensor reader."""
+        await self._read_sensor("history collection")
+
     async def _read_sensor(self, purpose: str) -> SensorReading | None:
         try:
             async with self._sensor_lock:
@@ -119,15 +123,24 @@ def register_monitoring_jobs(
     service: MonitoringService,
     alert_interval_seconds: int,
     local_tz: tzinfo | None = None,
+    measurement_interval_seconds: int = 60,
 ) -> None:
     if alert_interval_seconds < 1:
         raise ValueError("alert_interval_seconds must be at least 1")
+    if measurement_interval_seconds < 1:
+        raise ValueError("measurement_interval_seconds must be at least 1")
     timezone = local_tz or get_local_timezone()
     job_queue.run_repeating(
         service.check_alerts,
         interval=alert_interval_seconds,
         first=1,
         name="room-monitor-alert-check",
+    )
+    job_queue.run_repeating(
+        service.collect_history,
+        interval=measurement_interval_seconds,
+        first=1,
+        name="room-monitor-history-collection",
     )
     for hour in range(FIRST_REPORT_HOUR, LAST_REPORT_HOUR + 1):
         job_queue.run_daily(

@@ -207,6 +207,7 @@ def test_application_configures_ipv4_for_api_and_polling(monkeypatch, tmp_path):
         0x40,
         alert_state_file=tmp_path / "alert-state.json",
         threshold_file=tmp_path / "thresholds.json",
+        database_file=tmp_path / "data" / "temperature_monitor.db",
     )
 
     build_application(config)
@@ -218,3 +219,4 @@ def test_application_configures_ipv4_for_api_and_polling(monkeypatch, tmp_path):
     register_jobs.assert_called_once()
     assert register_jobs.call_args.args[0] is builder.build.return_value.job_queue
     assert register_jobs.call_args.args[2] == 60
+    assert register_jobs.call_args.kwargs["measurement_interval_seconds"] == 60

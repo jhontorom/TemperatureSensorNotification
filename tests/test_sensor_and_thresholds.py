@@ -43,6 +43,8 @@ def test_runtime_config_reads_required_environment_values(monkeypatch):
     monkeypatch.setenv("ROOM_MONITOR_ALERT_STATE_FILE", "/tmp/room-monitor-test-state.json")
     monkeypatch.setenv("ROOM_MONITOR_THRESHOLD_FILE", "/tmp/room-monitor-test-thresholds.json")
     monkeypatch.setenv("ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS", "60")
+    monkeypatch.setenv("ROOM_MONITOR_DATABASE_FILE", "/tmp/room-monitor-test.db")
+    monkeypatch.setenv("ROOM_MONITOR_MEASUREMENT_INTERVAL_SECONDS", "90")
 
     config = load_runtime_config()
 
@@ -53,6 +55,8 @@ def test_runtime_config_reads_required_environment_values(monkeypatch):
     assert str(config.alert_state_file) == "/tmp/room-monitor-test-state.json"
     assert str(config.threshold_file) == "/tmp/room-monitor-test-thresholds.json"
     assert config.alert_check_interval_seconds == 60
+    assert str(config.database_file) == "/tmp/room-monitor-test.db"
+    assert config.measurement_interval_seconds == 90
     assert "example-token" not in repr(config)
 
 
@@ -62,6 +66,15 @@ def test_runtime_config_rejects_invalid_alert_interval(monkeypatch):
     monkeypatch.setenv("ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS", "0")
 
     with pytest.raises(ValueError, match="must be at least 1"):
+        load_runtime_config()
+
+
+def test_runtime_config_rejects_invalid_measurement_interval(monkeypatch):
+    monkeypatch.setenv("ROOM_MONITOR_TELEGRAM_BOT_TOKEN", "example-token")
+    monkeypatch.setenv("ROOM_MONITOR_AUTHORIZED_CHAT_ID", "123456789")
+    monkeypatch.setenv("ROOM_MONITOR_MEASUREMENT_INTERVAL_SECONDS", "0")
+
+    with pytest.raises(ValueError, match="MEASUREMENT_INTERVAL_SECONDS"):
         load_runtime_config()
 
 

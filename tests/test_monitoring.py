@@ -150,6 +150,18 @@ async def test_sensor_failure_does_not_send_or_crash():
     context.bot.send_message.assert_not_awaited()
 
 
+@pytest.mark.asyncio
+async def test_history_collection_reads_sensor_without_sending_telegram():
+    context = context_with_bot()
+    sensor_reader = Mock(return_value=SensorReading(25.0, 48.5))
+    service = MonitoringService(sensor_reader, AlertTracker(MemoryStore()), 123)
+
+    await service.collect_history(context)
+
+    sensor_reader.assert_called_once_with()
+    context.bot.send_message.assert_not_awaited()
+
+
 @pytest.mark.parametrize("hour", range(8, 18))
 def test_hourly_report_rule_includes_8_am_through_5_pm(hour):
     assert is_hourly_report_time(datetime(2026, 9, 2, hour, 0, 0))
@@ -175,11 +187,18 @@ def test_job_registration_uses_local_hours_and_all_day_repeating_alerts():
 
     register_monitoring_jobs(queue, service, 60, timezone)
 
-    queue.run_repeating.assert_called_once_with(
+    assert queue.run_repeating.call_count == 2
+    queue.run_repeating.assert_any_call(
         service.check_alerts,
         interval=60,
         first=1,
         name="room-monitor-alert-check",
+    )
+    queue.run_repeating.assert_any_call(
+        service.collect_history,
+        interval=60,
+        first=1,
+        name="room-monitor-history-collection",
     )
     assert queue.run_daily.call_count == 10
     scheduled_times = [call.kwargs["time"] for call in queue.run_daily.call_args_list]

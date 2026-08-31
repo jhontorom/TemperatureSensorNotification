@@ -17,6 +17,8 @@ class RuntimeConfig:
     alert_state_file: Path = Path("/var/lib/room-monitor/alert-state.json")
     threshold_file: Path = Path("/var/lib/room-monitor/thresholds.json")
     alert_check_interval_seconds: int = 60
+    database_file: Path = Path("data/temperature_monitor.db")
+    measurement_interval_seconds: int = 60
 
 
 def _get_env_int(name: str, default: int | None = None) -> int | None:
@@ -42,6 +44,9 @@ def load_runtime_config() -> RuntimeConfig:
     alert_interval = _get_env_int("ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS", 60)
     if alert_interval is None or alert_interval < 1:
         raise ValueError("ROOM_MONITOR_ALERT_CHECK_INTERVAL_SECONDS must be at least 1")
+    measurement_interval = _get_env_int("ROOM_MONITOR_MEASUREMENT_INTERVAL_SECONDS", 60)
+    if measurement_interval is None or measurement_interval < 1:
+        raise ValueError("ROOM_MONITOR_MEASUREMENT_INTERVAL_SECONDS must be at least 1")
 
     return RuntimeConfig(
         telegram_bot_token=token,
@@ -56,4 +61,8 @@ def load_runtime_config() -> RuntimeConfig:
             os.getenv("ROOM_MONITOR_THRESHOLD_FILE", "/var/lib/room-monitor/thresholds.json")
         ),
         alert_check_interval_seconds=alert_interval,
+        database_file=Path(
+            os.getenv("ROOM_MONITOR_DATABASE_FILE", "data/temperature_monitor.db")
+        ),
+        measurement_interval_seconds=measurement_interval,
     )
