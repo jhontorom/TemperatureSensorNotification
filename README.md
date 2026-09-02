@@ -208,8 +208,9 @@ The systemd installation runs from `/opt/room-monitor`, so the deployed path is:
 The application creates the directory, database, tables, and timestamp index
 automatically. Existing rows are preserved on restart and when the installer is
 run again. Sensor timestamps are stored in UTC so later weather and energy data
-can be correlated without daylight-saving ambiguity. SQLite database and
-journal files under `data/` are ignored by Git.
+can be correlated without daylight-saving ambiguity. The history CLI converts
+them to the Pi's configured local timezone and labels each row with `EST` or
+`EDT`. SQLite database and journal files under `data/` are ignored by Git.
 
 A dedicated scheduler job uses the existing Si7021 reader and stores one valid
 measurement on each collection cycle. Telegram commands, alert checks, and
@@ -239,7 +240,7 @@ cd /opt/room-monitor
 sudo -u room-monitor .venv/bin/python3 -m room_monitor.cli_history --limit 20
 ```
 
-For a date range, supply both endpoints:
+For a date range, supply both endpoints in the Pi's local time:
 
 ```bash
 cd /opt/room-monitor
