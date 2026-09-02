@@ -56,7 +56,7 @@ async def test_hourly_report_contains_all_measurements():
     context.bot.send_message.assert_awaited_once()
     assert context.bot.send_message.await_args.args[0] == 123
     message = context.bot.send_message.await_args.args[1]
-    assert "23.42 C / 74.15 F" in message
+    assert "22.45 C / 72.34 F" in message
     assert "48.50%" in message
 
 
@@ -188,7 +188,7 @@ def test_temperature_alert_message_uses_calibrated_values():
 
     message = format_alert_message(result.events)
 
-    assert "28.42 C / 83.15 F" in message
+    assert "27.45 C / 81.34 F" in message
     assert "30.00 C / 86.00 F" not in message
 
 

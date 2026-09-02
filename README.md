@@ -267,19 +267,19 @@ The Si7021 measurement remains unchanged and is exposed as
 fixed calibration constants from `room_monitor/sensor.py`:
 
 ```text
-TEMPERATURE_OFFSET_F = -2.85
-TEMPERATURE_OFFSET_C = -1.583
+TEMPERATURE_OFFSET_F = -4.66
+TEMPERATURE_OFFSET_C = -2.55
 ```
 
 The application exposes `calibrated_temperature_c` and
 `calibrated_temperature_f` without overwriting either raw value. Telegram
-status, hourly reports, alert text, and the sensor-check command display the
-calibrated values. Alert threshold classification continues using the original
-measurement so existing alert behavior is unchanged.
+status, hourly reports, alert text, the sensor-check command, and history output
+display calibrated values. Temperature alert thresholds are evaluated against
+calibrated Celsius; humidity behavior is unchanged.
 
-The existing SQLite `temperature_f` column continues to store raw Fahrenheit.
-The history CLI labels and displays both calibrated and raw Fahrenheit, so
-historical data remains auditable and no migration or row rewrite is required.
+The existing SQLite `temperature_f` column continues to preserve raw Fahrenheit
+internally, so historical data remains auditable and no migration or row rewrite
+is required. Standard user-facing commands do not display the raw value.
 
 ## Checking the sensor
 

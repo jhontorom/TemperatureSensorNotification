@@ -89,7 +89,7 @@ def evaluate_alerts(
     thresholds: AlertThresholds = DEFAULT_THRESHOLDS,
 ) -> AlertEvaluation:
     current_state = AlertState(
-        temperature=classify_temperature(reading.temperature_c, thresholds),
+        temperature=classify_temperature(reading.calibrated_temperature_c, thresholds),
         humidity=classify_humidity(reading.humidity_pct, thresholds),
     )
     events: list[AlertEvent] = []

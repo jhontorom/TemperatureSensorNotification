@@ -33,10 +33,6 @@ def main() -> int:
         f"Temperature: {reading.calibrated_temperature_c:.2f} C / "
         f"{reading.calibrated_temperature_f:.2f} F (calibrated)"
     )
-    print(
-        f"Raw temperature: {reading.raw_temperature_c:.2f} C / "
-        f"{reading.raw_temperature_f:.2f} F"
-    )
     print(f"Humidity: {reading.humidity_pct:.2f} %")
     return 0
 

@@ -1,7 +1,7 @@
 import pytest
 
 from room_monitor.alerts import AlertState, AlertTracker, EventKind, Metric, evaluate_alerts
-from room_monitor.sensor import SensorReading
+from room_monitor.sensor import SensorReading, TEMPERATURE_OFFSET_C
 from room_monitor.thresholds import AlertThresholds, RangeState
 
 
@@ -23,9 +23,17 @@ class FailingStore(MemoryStore):
         raise OSError("state storage unavailable")
 
 
+def raw_temperature_for_calibrated(calibrated_temperature_c):
+    return calibrated_temperature_c - TEMPERATURE_OFFSET_C
+
+
 @pytest.mark.parametrize(
     ("temperature", "humidity"),
-    [(10.0, 30.0), (27.0, 60.0), (20.0, 45.0)],
+    [
+        (raw_temperature_for_calibrated(10.0), 30.0),
+        (raw_temperature_for_calibrated(27.0), 60.0),
+        (raw_temperature_for_calibrated(20.0), 45.0),
+    ],
 )
 def test_limit_values_are_normal(temperature, humidity):
     result = evaluate_alerts(AlertState(), SensorReading(temperature, humidity))
@@ -37,8 +45,16 @@ def test_limit_values_are_normal(temperature, humidity):
 @pytest.mark.parametrize(
     ("reading", "metric", "state"),
     [
-        (SensorReading(9.99, 45.0), Metric.TEMPERATURE, RangeState.LOW),
-        (SensorReading(27.01, 45.0), Metric.TEMPERATURE, RangeState.HIGH),
+        (
+            SensorReading(raw_temperature_for_calibrated(9.99), 45.0),
+            Metric.TEMPERATURE,
+            RangeState.LOW,
+        ),
+        (
+            SensorReading(raw_temperature_for_calibrated(27.01), 45.0),
+            Metric.TEMPERATURE,
+            RangeState.HIGH,
+        ),
         (SensorReading(20.0, 29.99), Metric.HUMIDITY, RangeState.LOW),
         (SensorReading(20.0, 60.01), Metric.HUMIDITY, RangeState.HIGH),
     ],
@@ -57,6 +73,13 @@ def test_repeated_out_of_range_reading_creates_no_duplicate():
 
     result = evaluate_alerts(previous, SensorReading(30.0, 45.0))
 
+    assert result.events == ()
+
+
+def test_raw_high_reading_does_not_alert_when_calibrated_value_is_normal():
+    result = evaluate_alerts(AlertState(), SensorReading(28.0, 45.0))
+
+    assert result.current_state.temperature is RangeState.NORMAL
     assert result.events == ()
 
 
@@ -146,10 +169,10 @@ def test_changed_threshold_is_used_on_next_evaluation():
     thresholds = AlertThresholds()
     tracker = AlertTracker(MemoryStore(), lambda: thresholds)
 
-    assert tracker.evaluate(SensorReading(26.0, 45.0)).events == ()
+    assert tracker.evaluate(SensorReading(28.0, 45.0)).events == ()
     thresholds = AlertThresholds(10.0, 25.0, 30.0, 60.0)
 
-    evaluation = tracker.evaluate(SensorReading(26.0, 45.0))
+    evaluation = tracker.evaluate(SensorReading(28.0, 45.0))
 
     assert evaluation.events[0].metric is Metric.TEMPERATURE
     assert evaluation.events[0].current is RangeState.HIGH

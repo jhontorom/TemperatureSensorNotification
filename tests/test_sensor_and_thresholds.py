@@ -21,17 +21,18 @@ def test_temperature_conversion_is_correct():
 
 
 def test_temperature_calibration_preserves_raw_values_and_applies_both_offsets():
-    raw_temperature_f = 78.85
-    raw_temperature_c = (raw_temperature_f - 32.0) * 5.0 / 9.0
+    # This underlying value displays as 27.75 C / 81.96 F before calibration.
+    raw_temperature_c = 27.754
     reading = SensorReading(raw_temperature_c, 50.0)
 
-    assert TEMPERATURE_OFFSET_F == -2.85
-    assert TEMPERATURE_OFFSET_C == -1.583
+    assert TEMPERATURE_OFFSET_F == -4.66
+    assert TEMPERATURE_OFFSET_C == -2.55
     assert reading.temperature_c == raw_temperature_c
     assert reading.raw_temperature_c == raw_temperature_c
-    assert reading.raw_temperature_f == pytest.approx(78.85)
-    assert reading.calibrated_temperature_f == pytest.approx(76.00)
-    assert reading.calibrated_temperature_c == pytest.approx(24.44, abs=0.01)
+    assert f"{reading.raw_temperature_c:.2f}" == "27.75"
+    assert f"{reading.raw_temperature_f:.2f}" == "81.96"
+    assert f"{reading.calibrated_temperature_f:.2f}" == "77.30"
+    assert f"{reading.calibrated_temperature_c:.2f}" == "25.20"
 
 
 def test_threshold_summary_marks_alerts_and_recovery():

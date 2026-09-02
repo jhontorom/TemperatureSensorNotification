@@ -41,15 +41,11 @@ def main(argv: list[str] | None = None) -> int:
         logging.error("Unable to display history: %s", exc)
         return 1
 
-    print(
-        f"{'Timestamp (UTC)':<24} {'Calibrated':>12} "
-        f"{'Raw':>10} {'Humidity':>11}"
-    )
+    print(f"{'Timestamp (UTC)':<24} {'Temperature':>12} {'Humidity':>11}")
     for reading in readings:
         print(
             f"{reading.timestamp:<24} "
             f"{calibrate_temperature_f(reading.raw_temperature_f):>8.1f} F "
-            f"{reading.raw_temperature_f:>6.1f} F "
             f"{reading.humidity:>8.1f} %"
         )
     return 0
